@@ -1,0 +1,146 @@
+#
+# Copyright (C) 2024 Antonino Scordino
+# Copyright (C) 2024 Souhrud Reddy
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+name: Build in Crave
+on:
+  workflow_dispatch:
+    # Various inputs to simplify usage of workflow.
+    inputs:
+      BUILD_COMMAND:
+        description: 'Usage: bash build.sh <project> <device> <build_type> [--reinit]'
+        required: true
+
+jobs:
+  Start-Runner:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tmux
+
+      # Download and configure 'crave'.
+    - name: Configure the 'crave' environment
+      run: |
+          mkdir ${HOME}/bin/
+          curl -s https://raw.githubusercontent.com/accupara/crave/master/get_crave.sh | bash -s --
+          mv ${PWD}/crave ${HOME}/bin/
+          sudo ln -sf /home/${USER}/bin/crave /usr/bin/crave
+          envsubst < ${PWD}/crave.conf.sample >> ${PWD}/crave.conf
+          rm -rf ${PWD}/crave.conf.sample
+      env:
+        CRAVE_USERNAME: ${{  secrets.CRAVE_USERNAME  }}
+        CRAVE_TOKEN: ${{  secrets.CRAVE_TOKEN  }}
+
+    - name: Run crave devspace
+      run: |
+        crave -v -n devspace -- "if tmux has-session -t ghactions; then
+          echo "Runner is already Running"
+        else
+          tmux kill-session -t ghactions;
+          tmux new-session -d -s ghactions
+          tmux send-keys -t ghactions './actions-runner/run.sh' Enter
+          echo "Runner Started"
+        fi "
+
+  build:
+    timeout-minutes: 960
+    name: Build using foss.crave.io
+    runs-on: self-hosted
+    
+    steps:
+    
+      # Create a project folder
+    - name: Set-up build dir
+      run: |
+       if [ ! -d "/crave-devspaces/build" ]; then
+          cd /crave-devspaces
+          crave clone create --projectID=72 build
+       fi
+        echo "BUILD_DIR=/crave-devspaces/build" >> $GITHUB_ENV
+
+      # Set-up a spearate directory for the device.
+    - name: Set-up build script
+      run: |
+        cd $BUILD_DIR
+        
+        if [ -f "build.sh" ]; then
+           rm build.sh
+        fi
+        curl https://raw.githubusercontent.com/dogpoopy/crave_build/main/scripts/build.sh > build.sh
+
+      # Create a 'crave' job for building.
+    - name: Start compilation (Queue first)
+      continue-on-error: false
+      run: |
+        cd $BUILD_DIR
+
+        jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
+        
+        ${{ github.event.inputs.BUILD_COMMAND }}
+
+        # Only reach this if the user killed the workflow.
+    - name: Execute if the job is cancelled
+      if: ${{ cancelled() }}
+      run: |
+        cd $BUILD_DIR
+        crave stop --all
+
+      # Upload '.zip's and '.img's directly from 'crave' ssh.
+    - name: Pull and upload the zip
+      continue-on-error: false
+      run: |
+        cd $BUILD_DIR
+        
+        crave pull 'out/target/product/*/*.zip'
+        cd $DEVICE_CODENAME
+        file_name=$(find . -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+        bashup_load=$(curl -s -F "file=@$file_name" bashupload.com)
+        download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
+
+        echo "DOWNLOAD_LINK=$download_link" >> $GITHUB_ENV
+        echo "FILE_NAME=$file_name" >> $GITHUB_ENV
+
+        rm *.zip
+
+      # Pull Errors and Display them
+    - name: Display error.log
+      if: ${{ failure() }}
+      id: errorlog
+      run: |
+        cd $BUILD_DIR
+        crave ssh -- sleep 1
+        crave pull out/error.log
+        echo "Displaying out/error.log"
+        cat out/error.log
+        rm error.log
+        
+  Upload-to-Gdrive:
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Download the zip
+        run: |
+          rm -rf ${{ github.workspace }}/*
+          wget $DOWNLOAD_LINK
+          mv *.zip $FILE_NAME
+          
+      - name: google-drive-upload-git-action
+        uses: adityak74/google-drive-upload-git-action@v0.3
+        with:
+          credentials: ${{ secrets.GSERVICE }}
+          folderId: ${{ secrets.FOLDER_ID }}
+          filename: ${{ env.FILE_NAME }}
+          overwrite: "true"
