@@ -38,6 +38,9 @@ reinit="$4"
 
 validate_params
 
+echo "DEVICE_CODENAME=$device" >> $GITHUB_ENV
+echo "ROM_NAME=$project" >> $GITHUB_ENV
+
 case "$project" in
   "PixelOS-14")
     repo_init="repo init --depth=1 --no-repo-verify -u https://github.com/PixelOS-AOSP/manifest.git -b fourteen -g default,-mips,-darwin,-notdefault"
@@ -68,6 +71,7 @@ if [ "$reinit" == "--reinit" ]; then
     $repo_init && \
     git clone $manifest .repo/local_manifests && \
     /opt/crave/resync.sh && \
+    rm -rf out/target/product/$device/*.zip ; \
     source build/envsetup.sh && \
     $make_command"
   else
@@ -75,6 +79,7 @@ if [ "$reinit" == "--reinit" ]; then
     $repo_init && \
     git clone $manifest .repo/local_manifests && \
     /opt/crave/resync.sh && \
+    rm -rf out/target/product/$device/*.zip ; \
     source build/envsetup.sh && \
     $lunch && \
     $make_command"
@@ -82,14 +87,15 @@ if [ "$reinit" == "--reinit" ]; then
 else
   if [ "$project" == "CrDroid-14" ]; then
     crave run --no-patch "/opt/crave/resync.sh && \
+    rm -rf out/target/product/$device/*.zip ; \
     source build/envsetup.sh && \
     $make_command"
   else
     crave run --no-patch "/opt/crave/resync.sh && \
     source build/envsetup.sh && \
+    rm -rf out/target/product/$device/*.zip ; \
     $lunch && \
     $make_command"
   fi
 fi
 
-export DEVICE_CODENAME="$device"

@@ -8,7 +8,6 @@
 name: Build in Crave
 on:
   workflow_dispatch:
-    # Various inputs to simplify usage of workflow.
     inputs:
       BUILD_COMMAND:
         description: 'Usage: bash build.sh <project> <device> <build_type> [--reinit]'
@@ -58,7 +57,7 @@ jobs:
     
     steps:
     
-      # Create a project folder
+      # Create a build dir
     - name: Set-up build dir
       run: |
        if [ ! -d "/crave-devspaces/build" ]; then
@@ -67,62 +66,114 @@ jobs:
        fi
         echo "BUILD_DIR=/crave-devspaces/build" >> $GITHUB_ENV
 
-      # Set-up a spearate directory for the device.
+
     - name: Set-up build script
       run: |
-        cd $BUILD_DIR
+        cd ${{ env.BUILD_DIR }}
         
         if [ -f "build.sh" ]; then
            rm build.sh
         fi
         curl https://raw.githubusercontent.com/dogpoopy/crave_build/main/scripts/build.sh > build.sh
 
-      # Create a 'crave' job for building.
-    - name: Start compilation (Queue first)
-      continue-on-error: false
-      run: |
-        cd $BUILD_DIR
 
+    - name: Start compilation (Queue)
+      run: |
+        cd ${{ env.BUILD_DIR }}
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
-        
+
         ${{ github.event.inputs.BUILD_COMMAND }}
 
-        # Only reach this if the user killed the workflow.
-    - name: Execute if the job is cancelled
-      if: ${{ cancelled() }}
-      run: |
-        cd $BUILD_DIR
-        crave stop --all
-
-      # Upload '.zip's and '.img's directly from 'crave' ssh.
-    - name: Pull and upload the zip
-      continue-on-error: false
-      run: |
-        cd $BUILD_DIR
         
-        crave pull 'out/target/product/*/*.zip'
-        cd $DEVICE_CODENAME
-        file_name=$(find . -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
-        bashup_load=$(curl -s -F "file=@$file_name" bashupload.com)
-        download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
-
-        echo "DOWNLOAD_LINK=$download_link" >> $GITHUB_ENV
-        echo "FILE_NAME=$file_name" >> $GITHUB_ENV
-
-        rm *.zip
-
       # Pull Errors and Display them
-    - name: Display error.log
+    - name: Display error.log (if failed)
       if: ${{ failure() }}
-      id: errorlog
       run: |
-        cd $BUILD_DIR
-        crave ssh -- sleep 1
-        crave pull out/error.log
+        cd ${{ env.BUILD_DIR }}
+
+          send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown"
+        }
+        
+        crave pull 'out/error.log'
         echo "Displaying out/error.log"
         cat out/error.log
-        rm error.log
+        rm -f out/error.log
+
+        send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME }}%0ASTATUS: Failed%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
+
+      env:
+        chatId: ${{ secrets.TELEGRAM_TO }}
+        botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
+    - name: Pull and upload the zip
+      if: ${{ success() }}
+      continue-on-error: false
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown"
+        }
+
+        send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Successful! Uploading...%0ACheck Progress at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
+        rm -rf ${{ env.DEVICE_CODENAME }}
         
+        crave pull 'out/target/product/*/*.zip'
+        cd ${{ env.DEVICE_CODENAME }}
+        file_name=$(find . -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+        echo $file_name
+        bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
+        download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
+        echo $download_link
+        
+        echo "DOWNLOAD_LINK=$download_link" > push_gdrive.txt
+        echo "FILE_NAME=$file_name" >> push_gdrive.txt
+        
+      env:
+        chatId: ${{ secrets.TELEGRAM_TO }}
+        botToken: ${{ secrets.TELEGRAM_TOKEN }}
+        
+    - name: Set-up environment variables
+      uses: actions/upload-artifact@v3
+      if:  ${{ success() }}
+      with:
+          name: push-gdrive
+          path: ${{ env.BUILD_DIR }}/${{ env.DEVICE_CODENAME }}/push_gdrive.txt
+
+    - name: Execute if the job is cancelled
+      if:  ${{ cancelled() }}
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+          send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown"
+        }
+        
+        crave stop --all
+
+        send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME }}%0ASTATUS: Cancelled%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
+
+      env:
+        chatId: ${{ secrets.TELEGRAM_TO }}
+        botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
+
   Upload-to-Gdrive:
     needs: build
     runs-on: ubuntu-latest
@@ -131,16 +182,62 @@ jobs:
         working-directory: ${{ github.workspace }}
 
     steps:
+      - name: Download environment variables for Gdrive upload
+        uses: actions/download-artifact@v3
+        with:
+          name: push-gdrive
+
       - name: Download the zip
         run: |
+          export $(cat push_gdrive.txt | xargs)
           rm -rf ${{ github.workspace }}/*
           wget $DOWNLOAD_LINK
           mv *.zip $FILE_NAME
+
+          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
           
-      - name: google-drive-upload-git-action
+      - name: Upload to Google Drive
         uses: adityak74/google-drive-upload-git-action@v0.3
         with:
           credentials: ${{ secrets.GSERVICE }}
           folderId: ${{ secrets.FOLDER_ID }}
           filename: ${{ env.FILE_NAME }}
           overwrite: "true"
+ 
+      - name: Telegram Notification (if success)
+        if:  ${{ success() }}
+        continue-on-error: true
+        run: |
+          send_telegram_message() {
+            local message="$1"
+            curl -s -X POST \
+            https://api.telegram.org/bot$botToken/sendMessage \
+            -d chat_id=$chatId \
+            -d text="$message" \
+            -d parse_mode="Markdown"
+          }
+
+          send_telegram_message "${{ env.FILE_NAME }} Successfully sent to Google Drive"
+
+        env:
+         chatId: ${{ secrets.TELEGRAM_TO }}
+         botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
+      - name: Telegram Notification (if fail)
+        if:  ${{ failure() }}
+        run: |
+         send_telegram_message() {
+            local message="$1"
+            curl -s -X POST \
+            https://api.telegram.org/bot$botToken/sendMessage \
+            -d chat_id=$chatId \
+            -d text="$message" \
+            -d parse_mode="Markdown"
+         }
+
+         send_telegram_message "Uploading failed! %0ACheck Info at: https://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}%0A"
+
+        env:
+         chatId: ${{ secrets.TELEGRAM_TO }}
+         botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
