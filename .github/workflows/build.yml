@@ -21,11 +21,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y tmux
-
       # Download and configure 'crave'.
     - name: Configure the 'crave' environment
       run: |
@@ -41,7 +36,7 @@ jobs:
 
     - name: Run crave devspace
       run: |
-        crave -v -n devspace -- "if tmux has-session -t ghactions; then
+        crave -n devspace -- "if tmux has-session -t ghactions; then
           echo "Runner is already Running"
         else
           tmux kill-session -t ghactions;
