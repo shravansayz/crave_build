@@ -9,8 +9,9 @@ name: Build in Crave
 on:
   workflow_dispatch:
     inputs:
-      BUILD_COMMAND:
-        description: 'Usage: bash build.sh <project> <device> <build_type> [--reinit]'
+      BUILD_SCRIPT:
+        description: 'Build script to use'
+        default: crdroid.sh
         required: true
 
 env:
@@ -74,15 +75,16 @@ jobs:
         if [ -f "build.sh" ]; then
            rm build.sh
         fi
-        curl https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/build.sh > build.sh
+        curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} > build.sh
+
 
     - name: Start compilation (Queue)
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
-
-        ${{ github.event.inputs.BUILD_COMMAND }}
+        
+        bash build.sh
 
       # Pull Errors and Display them
     - name: Display error.log (if failed)

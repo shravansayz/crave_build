@@ -38,6 +38,7 @@ reinit="$4"
 
 validate_params
 
+crave ssh -- "rm -f out/target/product/$device/*.zip"
 echo "DEVICE_CODENAME=$device" >> $GITHUB_ENV
 echo "ROM_NAME=$project" >> $GITHUB_ENV
 
