@@ -11,7 +11,6 @@ on:
     inputs:
       BUILD_SCRIPT:
         description: 'Build script to use'
-        default: crdroid.sh
         required: true
 
 env:
@@ -73,7 +72,7 @@ jobs:
         cd ${{ env.BUILD_DIR }}
         
         if [ -f "build.sh" ]; then
-           rm build.sh
+           rm -f build.sh
         fi
         curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} > build.sh
 
@@ -96,13 +95,17 @@ jobs:
 
         crave pull 'out/error.log'
         echo "Displaying error.log"
-        cat error.log
-        rm -f error.log
+        cat out/error.log
+        rm -rf out
+        exit 0
 
-    - name: Checking for zip
+    - name: Checking for ROM zip
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
+
+        NC='\033[0m'
+        RED='\033[0;31m'
 
         send_telegram_message() {
           local message="$1"
@@ -119,10 +122,16 @@ jobs:
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
         if [ -z "$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')" ]; then
             send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Failed or Cancelled%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
+            echo -e ${RED} "#######################################################################"
+            echo -e ${RED} "##                    ROM ZIP FILE NOT FOUND!!!                      ##"
+            echo -e ${RED} "##     THE BUILD MIGHT'VE FAILED, CANCELLED OR THE RUNNER DIED.      ##"
+            echo -e ${RED} "##            CHECK THE ERROR LOG OR GO TO FOSS.CRAVE.IO             ##"
+            echo -e ${RED} "#######################################################################${NC}"
             exit 1
         else
             file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
             echo $file_name
+            rm -f *ota*.zip
             bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
             download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
             echo $download_link
@@ -198,8 +207,7 @@ jobs:
             curl -s -X POST \
             https://api.telegram.org/bot$botToken/sendMessage \
             -d chat_id=$chatId \
-            -d text="$message" \
-            -d parse_mode="Markdown"
+            -d text="$message"
           }
 
           send_telegram_message "${{ env.FILE_NAME }} Successfully sent to Google Drive"

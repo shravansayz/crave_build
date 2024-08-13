@@ -1,0 +1,149 @@
+#
+# Copyright (C) 2024 Antonino Scordino
+# Copyright (C) 2024 Souhrud Reddy
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+name: Manual Gdrive Upload
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE_CODENAME:
+        description: 'Device Codename'
+        default: apollo
+        required: true
+
+env:
+ chatId: ${{ secrets.TELEGRAM_TO }}
+ botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
+
+jobs:
+  Start-Runner:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+      # Download and configure 'crave'.
+    - name: Configure the 'crave' environment
+      run: |
+          mkdir ${HOME}/bin/
+          curl -s https://raw.githubusercontent.com/accupara/crave/master/get_crave.sh | bash -s --
+          mv ${PWD}/crave ${HOME}/bin/
+          sudo ln -sf /home/${USER}/bin/crave /usr/bin/crave
+          envsubst < ${PWD}/crave.conf.sample >> ${PWD}/crave.conf
+          rm -rf ${PWD}/crave.conf.sample
+      env:
+        CRAVE_USERNAME: ${{  secrets.CRAVE_USERNAME  }}
+        CRAVE_TOKEN: ${{  secrets.CRAVE_TOKEN  }}
+
+    - name: Run crave devspace
+      run: |
+        crave -n devspace -- "if tmux has-session -t ghactions; then
+          echo "Runner is already Running"
+        else
+          tmux kill-session -t ghactions;
+          tmux new-session -d -s ghactions
+          tmux send-keys -t ghactions './actions-runner/run.sh' Enter
+          echo "Runner Started"
+        fi "
+
+  build:
+    timeout-minutes: 960
+    name: Pull and upload zip from devspace
+    runs-on: self-hosted
+    
+    steps:
+    
+      # Create a build dir
+    - name: Set-up build dir
+      run: |
+        echo "BUILD_DIR=/crave-devspaces/build" >> $GITHUB_ENV
+
+    - name: Pulling ROM zip
+      continue-on-error: false
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        rm -f *.zip
+        rm -f push_gdrive.txt
+        
+        crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.zip'
+        file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+        echo $file_name
+        rm -f *ota*.zip
+        bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
+        download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
+        echo $download_link
+        
+        echo "DOWNLOAD_LINK=$download_link" > push_gdrive.txt
+        echo "FILE_NAME=$file_name" >> push_gdrive.txt
+
+    - name: Set-up environment variables
+      uses: actions/upload-artifact@v3
+      if:  ${{ success() }}
+      with:
+          name: push-gdrive
+          path: ${{ env.BUILD_DIR }}/push_gdrive.txt
+
+
+  Upload-to-Gdrive:
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+    
+      - name: Download environment variables for Gdrive upload
+        uses: actions/download-artifact@v3
+        with:
+          name: push-gdrive
+
+      - name: Download the zip
+        run: |
+          export $(cat push_gdrive.txt | xargs)
+          rm -rf ${{ github.workspace }}/*
+          wget $DOWNLOAD_LINK
+          mv *.zip $FILE_NAME
+
+          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
+          
+      - name: Upload to Google Drive
+        uses: adityak74/google-drive-upload-git-action@v0.3
+        with:
+          credentials: ${{ secrets.GSERVICE }}
+          folderId: ${{ secrets.FOLDER_ID }}
+          filename: ${{ env.FILE_NAME }}
+          overwrite: "true"
+ 
+      - name: Telegram Notification (if success)
+        if:  ${{ success() }}
+        run: |
+          send_telegram_message() {
+            local message="$1"
+            curl -s -X POST \
+            https://api.telegram.org/bot$botToken/sendMessage \
+            -d chat_id=$chatId \
+            -d text="$message"
+          }
+
+          send_telegram_message "${{ env.FILE_NAME }} Successfully sent to Google Drive"
+
+      - name: Telegram Notification (if fail)
+        if:  ${{ failure() }}
+        run: |
+         send_telegram_message() {
+            local message="$1"
+            curl -s -X POST \
+            https://api.telegram.org/bot$botToken/sendMessage \
+            -d chat_id=$chatId \
+            -d text="$message" \
+            -d parse_mode="Markdown"
+         }
+
+         send_telegram_message "Uploading failed! %0ACheck Info at: https://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}%0A"
