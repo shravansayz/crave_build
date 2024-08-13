@@ -9,14 +9,28 @@ name: Build in Crave.io
 on:
   workflow_dispatch:
     inputs:
-      BUILD_SCRIPT:
+       BASE_PROJECT:
+        description: 'Choose a base project:'
+        required: true
+        type: choice
+        options:
+          - 'LineageOS 20.0'
+          - 'LineageOS 21.0'
+          - 'ArrowOS 13.1'
+          - 'DerpFest 14.0'
+          - 'CipherOS 14'
+          - 'PixelOS 14'
+          - 'RisingOS 14'
+          - 'LineageOS 18.1'
+          - 'LineageOS 16.0'
+          - 'CyanogenMOD 14.1'
+       BUILD_SCRIPT:
         description: 'Build script to use'
         required: true
 
 env:
  chatId: ${{ secrets.TELEGRAM_TO }}
  botToken: ${{ secrets.TELEGRAM_TOKEN }}
-
 
 jobs:
   Start-Runner:
@@ -60,12 +74,68 @@ jobs:
       # Create a build dir
     - name: Set-up build dir
       run: |
-       if [ ! -d "/crave-devspaces/build" ]; then
-          cd /crave-devspaces
-          crave clone create --projectID=72 build
-       fi
-        echo "BUILD_DIR=/crave-devspaces/build" >> $GITHUB_ENV
+        case "${{ github.event.inputs.BASE_PROJECT }}" in
+        "ArrowOS 13.1")
+          export PROJECTFOLDER="/crave-devspaces/Arrow13"
+          export PROJECTID="73"
+        ;;
+        "DerpFest 14.0")
+          export PROJECTFOLDER="/crave-devspaces/DerpFest14"
+          export PROJECTID="64"
+        ;;
+        "LineageOS 21.0")
+          export PROJECTFOLDER="/crave-devspaces/Lineage21"
+          export PROJECTID="72"
+        ;;
+        "LineageOS 20.0")
+          export PROJECTFOLDER="/crave-devspaces/Lineage20"
+          export PROJECTID="36"
+        ;;
+        "CipherOS 14")
+          export PROJECTFOLDER="/crave-devspaces/Cipher14"
+          export PROJECTID="79"
+        ;;
+        "PixelOS 14")
+          export PROJECTFOLDER="/crave-devspaces/Pixel14"
+          export PROJECTID="82"
+        ;;
+        "RisingOS 14")
+          export PROJECTFOLDER="/crave-devspaces/Rising14"
+          export PROJECTID="86"
+        ;;
+        "LineageOS 18.1")
+          export PROJECTFOLDER="/crave-devspaces/Lineage18"
+          export PROJECTID="85"
+        ;;
+        "LineageOS 16.0")
+          export PROJECTFOLDER="/crave-devspaces/Lineage16"
+          export PROJECTID="81"
+        ;;
+        "CyanogenMOD 14.1")
+          export PROJECTFOLDER="/crave-devspaces/Cyanogen14"
+          export PROJECTID="83"
+        ;;
+        esac
+        
+          existing_clones=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
+          
+          for dir in $existing_clones; do
+            if [[ "$dir" != "$PROJECTFOLDER" ]]; then
+              echo "Removing old project directory: $dir"
+              crave clone destroy -y "$dir"
+          fi
+          done
 
+          # Check if the current project directory exists or create it
+          if grep -q "$PROJECTFOLDER" <<< "$existing_clones" && [ "${DCDEVSPACE}" == "1" ]; then
+            echo "Base project $PROJECTFOLDER build directory exists! Reusing it."
+            echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
+          else
+            crave clone create --projectID "$PROJECTID" "$PROJECTFOLDER"
+            echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
+          fi
+
+        echo "Building on $PROJECTFOLDER project"
 
     - name: Set-up build script
       run: |

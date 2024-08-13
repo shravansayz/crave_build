@@ -1,2 +1,4 @@
 LOS 21:
   ignoreClientHostname: true
+PixelOS:
+  ignoreClientHostname: true
