@@ -61,7 +61,8 @@ jobs:
       # Create a build dir
     - name: Set-up build dir
       run: |
-        echo "BUILD_DIR=/crave-devspaces/build" >> $GITHUB_ENV
+        build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
+        echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
 
     - name: Pulling ROM zip
       continue-on-error: false
@@ -79,17 +80,13 @@ jobs:
         download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
         echo $download_link
         
-        echo "DOWNLOAD_LINK=$download_link" > push_gdrive.txt
-        echo "FILE_NAME=$file_name" >> push_gdrive.txt
+        echo "DOWNLOAD_LINK=$download_link" >> $GITHUB_ENV
+        echo "FILE_NAME=$file_name" >> $GITHUB_ENV
 
-    - name: Set-up environment variables
-      uses: actions/upload-artifact@v3
-      if:  ${{ success() }}
-      with:
-          name: push-gdrive
-          path: ${{ env.BUILD_DIR }}/push_gdrive.txt
-
-
+    outputs:
+      DOWNLOAD_LINK: ${{ env.DOWNLOAD_LINK }}
+      FILE_NAME: ${{ env.FILE_NAME }}
+      
   Upload-to-Gdrive:
     needs: build
     runs-on: ubuntu-latest
@@ -98,18 +95,17 @@ jobs:
         working-directory: ${{ github.workspace }}
 
     steps:
-    
-      - name: Download environment variables for Gdrive upload
-        uses: actions/download-artifact@v3
-        with:
-          name: push-gdrive
 
       - name: Download the zip
         run: |
-          export $(cat push_gdrive.txt | xargs)
+          DOWNLOAD_LINK="${{ needs.build.outputs.DOWNLOAD_LINK }}"
+          FILE_NAME="${{ needs.build.outputs.FILE_NAME }}"
           rm -rf ${{ github.workspace }}/*
           wget $DOWNLOAD_LINK
-          mv *.zip $FILE_NAME
+          
+          if [ "$(basename *.zip)" != "$FILE_NAME" ]; then
+             mv *.zip "$FILE_NAME"
+          fi
 
           echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
           
