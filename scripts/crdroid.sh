@@ -1,10 +1,3 @@
-device="apollo" # required
-project="crDroid-14" # just for telegram notif
-echo "DEVICE_CODENAME=$device" >> $GITHUB_ENV
-echo "ROM_NAME=$project" >> $GITHUB_ENV
-
-crave ssh -- "rm -f out/target/product/$device/*.zip"
-
 crave run --no-patch -- "
 rm -rf .repo/local_manifests ; \
 repo init --depth=1 --no-repo-verify -u https://github.com/crdroidandroid/android.git -b 14.0 -g default,-mips,-darwin,-notdefault && \

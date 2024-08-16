@@ -24,6 +24,12 @@ on:
           - 'LineageOS 18.1'
           - 'LineageOS 16.0'
           - 'CyanogenMOD 14.1'
+       DEVICE_CODENAME:
+        description: "Device codename:"
+        required: true
+        default: "apollo"
+       PROJECT:
+        description: "What's the ROM? (only for Telegram notification)"
        BUILD_SCRIPT:
         description: 'Build script to use'
         required: true
@@ -135,6 +141,8 @@ jobs:
             echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
           fi
 
+        echo "DEVICE_CODENAME=${{ github.event.inputs.DEVICE_CODENAME }}" >> $GITHUB_ENV
+        echo "ROM_NAME=${{ github.event.inputs.PROJECT }}" >> $GITHUB_ENV
         echo "Building on $PROJECTFOLDER project"
 
     - name: Set-up build script
@@ -154,7 +162,21 @@ jobs:
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
+
+        send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown"
+        }
+
+        send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Initiated%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
+
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
+
+        crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip"
         
         bash build.sh
 
