@@ -51,31 +51,25 @@ jobs:
           echo "Runner Started"
         fi "
 
-  build:
+  upload:
     timeout-minutes: 960
-    name: Pull and upload zip from devspace
+    name: Upload zip from devspace
     runs-on: self-hosted
     
     steps:
     
-      # Create a build dir
-    - name: Set-up build dir
+    - name: Build dir
       run: |
         build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
         echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
 
-    - name: Pulling ROM zip
+    - name: Preparing ROM zip
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
 
-        rm -f *.zip
-        rm -f push_gdrive.txt
-        
-        crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.zip'
         file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
         echo $file_name
-        rm -f *ota*.zip
         bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
         download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
         echo $download_link
@@ -88,7 +82,7 @@ jobs:
       FILE_NAME: ${{ env.FILE_NAME }}
       
   Upload-to-Gdrive:
-    needs: build
+    needs: upload
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -98,8 +92,8 @@ jobs:
 
       - name: Download the zip
         run: |
-          DOWNLOAD_LINK="${{ needs.build.outputs.DOWNLOAD_LINK }}"
-          FILE_NAME="${{ needs.build.outputs.FILE_NAME }}"
+          DOWNLOAD_LINK="${{ needs.upload.outputs.DOWNLOAD_LINK }}"
+          FILE_NAME="${{ needs.upload.outputs.FILE_NAME }}"
           rm -rf ${{ github.workspace }}/*
           wget $DOWNLOAD_LINK
           
@@ -142,4 +136,4 @@ jobs:
             -d parse_mode="Markdown"
          }
 
-         send_telegram_message "Uploading failed! %0ACheck Info at: https://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}%0A"
+         send_telegram_message "Uploading to Google Drive failed! %0ACheck Info at: https://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}%0A"
