@@ -1,0 +1,29 @@
+{
+	"response": [
+		{
+			"maintainer": "dogpoopy",
+			"oem": "Xiaomi",
+			"device": "Xiaomi Mi10T/pro, Redmi K30s Ultra",
+			"filename": "crDroidAndroid-14.0-20240816-apollo-v10.7.zip",
+			"download": "https://github.com/dogpoopy/crave_build/releases/download/10418298743/crDroidAndroid-14.0-20240816-apollo-v10.7.zip",
+			"timestamp": 1723805240,
+			"md5": "b1e17b53c058371315d463faba0ac6f8",
+			"sha256": "e981bce8323a9db2dc65947d0498b681870ef2b0fbdbdfc8eb4b0c9a418ff66c",
+			"size": 1674020081,
+			"version": "10.7",
+			"buildtype": "Monthly",
+			"forum": "",
+			"gapps": "https://nikgapps.com/crdroid-official",
+			"firmware": "",
+			"modem": "",
+			"bootloader": "",
+			"recovery": "https://sourceforge.net/projects/recovery-for-xiaomi-devices/files/apollo/twrp-3.7.1_12-v8.6_A14_FBEv2-apollo-skkk.img/download",
+			"paypal": "",
+			"telegram": "",
+			"dt": "https://github.com/aosp-realm/android_device_xiaomi_apollo",
+			"common-dt": "",
+			"kernel": "https://github.com/aosp-realm/kernel_xiaomi_sm8250"
+		}
+	]
+}
+
