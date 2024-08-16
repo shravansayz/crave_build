@@ -191,7 +191,7 @@ jobs:
         rm -rf out
         exit 0
 
-    - name: Checking for ROM zip
+    - name: Preparing compiled objects
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -209,6 +209,8 @@ jobs:
         }
 
         rm -f *.zip
+        rm -f *sum
+        rm -rf out
         
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
         if [ -z "$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')" ]; then
@@ -220,17 +222,53 @@ jobs:
             echo -e ${RED} "#######################################################################${NC}"
             exit 1
         else
-            file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
-            echo $file_name
-            rm -f *ota*.zip
-            bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
-            download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
-            echo $download_link
+            crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*sum' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}.json' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}_changelog.txt'
         
-            echo "DOWNLOAD_LINK=$download_link" >> $GITHUB_ENV
-            echo "FILE_NAME=$file_name" >> $GITHUB_ENV
-            send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Done! Uploading...%0ACheck Progress at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
-         fi
+            file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+            release_title=$(basename "$file_name" .zip)
+
+            echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
+            echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
+            echo "RELEASENAME=$release_title" >> $GITHUB_ENV
+        fi
+
+    - name: Upload to GitHub releases
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        NC='\033[0m'
+        RED='\033[0;31m'
+
+        send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown"
+        }
+
+        gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
+
+        if [[ -f "${{ env.ZIP_FILE }}" ]]; then
+           file_size=$(stat -c%s "${{ env.ZIP_FILE }}")
+           if [[ $file_size -le 2147483648 ]]; then
+              gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "Released on ${{ env.RELEASE_DATE }}"
+              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.ZIP_FILE }} *sum out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*
+              send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME }}%0ASTATUS: Done! Uploaded to GitHub release%0ADownload at: %0Ahttps://github.com/${{ github.repository }}/releases/tag/${{ github.run_id }}"
+           else
+              send_telegram_message "${{ env.ZIP_FILE }} is too large!!! Cannot be uploaded to GitHub release. You can manually upload it from devspace%0AFILE PATH: ${{ env.BUILD_DIR }}/${{ env.ZIP_FILE }}"
+              echo -e ${RED} "#######################################################################"
+              echo -e ${RED} "##          ROM ZIP FILE IS TOO LARGE FOR GITHUB RELEASE!!           ##"
+              echo -e ${RED} "##         GO TO YOUR DEVSPACE AND UPLOAD IT SOMEWHERE ELSE          ##"
+              echo -e ${RED} "#######################################################################${NC}"
+              echo "FILE PATH: ${{ env.BUILD_DIR }}/${{ env.ZIP_FILE }}"
+           fi
+        fi
 
     - name: Execute if the job is cancelled
       if:  ${{ cancelled() }}
@@ -249,65 +287,3 @@ jobs:
         crave stop --all
 
         send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME }}%0ASTATUS: Cancelled%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
-
-    outputs:
-      DOWNLOAD_LINK: ${{ env.DOWNLOAD_LINK }}
-      FILE_NAME: ${{ env.FILE_NAME }}
-
-  Upload-to-Gdrive:
-    needs: build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-
-    steps:
-
-      - name: Download the zip
-        run: |
-          DOWNLOAD_LINK="${{ needs.build.outputs.DOWNLOAD_LINK }}"
-          FILE_NAME="${{ needs.build.outputs.FILE_NAME }}"
-          rm -rf ${{ github.workspace }}/*
-          wget $DOWNLOAD_LINK
-          
-          if [ "$(basename *.zip)" != "$FILE_NAME" ]; then
-             mv *.zip "$FILE_NAME"
-          fi
-
-          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
-          
-      - name: Upload to Google Drive
-        uses: adityak74/google-drive-upload-git-action@v0.3
-        with:
-          credentials: ${{ secrets.GSERVICE }}
-          folderId: ${{ secrets.FOLDER_ID }}
-          filename: ${{ env.FILE_NAME }}
-          overwrite: "true"
-
-      - name: Telegram Notification (if success)
-        if:  ${{ success() }}
-        run: |
-          send_telegram_message() {
-            local message="$1"
-            curl -s -X POST \
-            https://api.telegram.org/bot$botToken/sendMessage \
-            -d chat_id=$chatId \
-            -d text="$message"
-          }
-
-          send_telegram_message "${{ env.FILE_NAME }} Successfully sent to Google Drive"
-
-      - name: Telegram Notification (if fail)
-        if:  ${{ failure() }}
-        run: |
-         send_telegram_message() {
-            local message="$1"
-            curl -s -X POST \
-            https://api.telegram.org/bot$botToken/sendMessage \
-            -d chat_id=$chatId \
-            -d text="$message" \
-            -d parse_mode="Markdown"
-         }
-
-         send_telegram_message "Uploading failed! %0ACheck Info at: https://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}%0A"
-         
