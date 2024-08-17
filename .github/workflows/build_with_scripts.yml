@@ -169,7 +169,8 @@ jobs:
           https://api.telegram.org/bot$botToken/sendMessage \
           -d chat_id=$chatId \
           -d text="$message" \
-          -d parse_mode="Markdown"
+          -d parse_mode="Markdown" \
+          -d disable_web_page_preview=true
         }
 
         send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Initiated%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
@@ -205,7 +206,8 @@ jobs:
           https://api.telegram.org/bot$botToken/sendMessage \
           -d chat_id=$chatId \
           -d text="$message" \
-          -d parse_mode="Markdown"
+          -d parse_mode="Markdown" \
+          -d disable_web_page_preview=true
         }
 
         rm -f *.zip
@@ -250,7 +252,7 @@ jobs:
           https://api.telegram.org/bot$botToken/sendMessage \
           -d chat_id=$chatId \
           -d text="$message" \
-          -d parse_mode="Markdown"
+          -d disable_web_page_preview=true
         }
 
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
@@ -281,8 +283,7 @@ jobs:
           curl -s -X POST \
           https://api.telegram.org/bot$botToken/sendMessage \
           -d chat_id=$chatId \
-          -d text="$message" \
-          -d parse_mode="Markdown"
+          -d text="$message"
         }
         
         crave stop --all
