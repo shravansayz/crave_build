@@ -170,7 +170,7 @@ jobs:
           -d chat_id=$chatId \
           -d text="$message" \
           -d parse_mode="Markdown" \
-          -d disable_web_page_preview=true
+          -d disable_web_page_preview=true > /dev/null 2>&1
         }
 
         send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Initiated%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
@@ -207,7 +207,7 @@ jobs:
           -d chat_id=$chatId \
           -d text="$message" \
           -d parse_mode="Markdown" \
-          -d disable_web_page_preview=true
+          -d disable_web_page_preview=true > /dev/null 2>&1
         }
 
         rm -f *.zip
@@ -252,7 +252,7 @@ jobs:
           https://api.telegram.org/bot$botToken/sendMessage \
           -d chat_id=$chatId \
           -d text="$message" \
-          -d disable_web_page_preview=true
+          -d disable_web_page_preview=true > /dev/null 2>&1
         }
 
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
