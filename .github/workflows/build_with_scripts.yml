@@ -14,16 +14,10 @@ on:
         required: true
         type: choice
         options:
-          - 'LineageOS 20.0'
-          - 'LineageOS 21.0'
-          - 'ArrowOS 13.1'
-          - 'DerpFest 14.0'
-          - 'CipherOS 14'
-          - 'PixelOS 14'
-          - 'RisingOS 14'
-          - 'LineageOS 18.1'
-          - 'LineageOS 16.0'
-          - 'CyanogenMOD 14.1'
+          - 'LineageOS'
+          - 'DerpFest'
+          - 'PixelOS'
+          - 'RisingOS'
        DEVICE_CODENAME:
         description: "Device codename:"
         required: true
@@ -81,45 +75,21 @@ jobs:
     - name: Set-up build dir
       run: |
         case "${{ github.event.inputs.BASE_PROJECT }}" in
-        "ArrowOS 13.1")
-          export PROJECTFOLDER="/crave-devspaces/Arrow13"
-          export PROJECTID="73"
-        ;;
-        "DerpFest 14.0")
-          export PROJECTFOLDER="/crave-devspaces/DerpFest14"
+        "DerpFest")
+          export PROJECTFOLDER="/crave-devspaces/DerpFest-AOSP"
           export PROJECTID="64"
         ;;
-        "LineageOS 21.0")
-          export PROJECTFOLDER="/crave-devspaces/Lineage21"
+        "LineageOS")
+          export PROJECTFOLDER="/crave-devspaces/LineageOS"
           export PROJECTID="72"
         ;;
-        "LineageOS 20.0")
-          export PROJECTFOLDER="/crave-devspaces/Lineage20"
-          export PROJECTID="36"
-        ;;
-        "CipherOS 14")
-          export PROJECTFOLDER="/crave-devspaces/Cipher14"
-          export PROJECTID="79"
-        ;;
-        "PixelOS 14")
-          export PROJECTFOLDER="/crave-devspaces/Pixel14"
+        "PixelOS")
+          export PROJECTFOLDER="/crave-devspaces/PixelOS"
           export PROJECTID="82"
         ;;
-        "RisingOS 14")
-          export PROJECTFOLDER="/crave-devspaces/Rising14"
+        "RisingOS")
+          export PROJECTFOLDER="/crave-devspaces/RisingOS"
           export PROJECTID="86"
-        ;;
-        "LineageOS 18.1")
-          export PROJECTFOLDER="/crave-devspaces/Lineage18"
-          export PROJECTID="85"
-        ;;
-        "LineageOS 16.0")
-          export PROJECTFOLDER="/crave-devspaces/Lineage16"
-          export PROJECTID="81"
-        ;;
-        "CyanogenMOD 14.1")
-          export PROJECTFOLDER="/crave-devspaces/Cyanogen14"
-          export PROJECTID="83"
         ;;
         esac
         

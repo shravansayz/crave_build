@@ -2,3 +2,8 @@ LOS 21:
   ignoreClientHostname: true
 PixelOS:
   ignoreClientHostname: true
+DerpFest-aosp:
+  ignoreClientHostname: true
+Rising OS:
+  ignoreClientHostname: true
+
