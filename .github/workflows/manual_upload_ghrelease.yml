@@ -1,0 +1,133 @@
+#
+# Copyright (C) 2024 Antonino Scordino
+# Copyright (C) 2024 Souhrud Reddy
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+name: Manual GitHub release
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE_CODENAME:
+        description: 'Device Codename'
+        default: apollo
+        required: true
+
+env:
+ chatId: ${{ secrets.TELEGRAM_TO }}
+ botToken: ${{ secrets.TELEGRAM_TOKEN }}
+
+
+jobs:
+  Start-Runner:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+      # Download and configure 'crave'.
+    - name: Configure the 'crave' environment
+      run: |
+          mkdir ${HOME}/bin/
+          curl -s https://raw.githubusercontent.com/accupara/crave/master/get_crave.sh | bash -s --
+          mv ${PWD}/crave ${HOME}/bin/
+          sudo ln -sf /home/${USER}/bin/crave /usr/bin/crave
+          envsubst < ${PWD}/crave.conf.sample >> ${PWD}/crave.conf
+          rm -rf ${PWD}/crave.conf.sample
+      env:
+        CRAVE_USERNAME: ${{  secrets.CRAVE_USERNAME  }}
+        CRAVE_TOKEN: ${{  secrets.CRAVE_TOKEN  }}
+
+    - name: Run crave devspace
+      run: |
+        crave -n devspace -- "if tmux has-session -t ghactions; then
+          echo "Runner is already Running"
+        else
+          tmux kill-session -t ghactions;
+          tmux new-session -d -s ghactions
+          tmux send-keys -t ghactions './actions-runner/run.sh' Enter
+          echo "Runner Started"
+        fi "
+
+  upload:
+    timeout-minutes: 960
+    name: Release compiled objects
+    runs-on: self-hosted
+
+    steps:
+
+    - name: Build dir
+      run: |
+        build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
+        echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
+
+    - name: Preparing compiled objects
+      continue-on-error: false
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d parse_mode="Markdown" \
+          -d disable_web_page_preview=true > /dev/null 2>&1
+        }
+            rm -f *.zip
+            rm -f *sum
+            rm -rf out
+
+            crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*sum' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}.json' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}_changelog.txt'
+
+            rm -f *ota*.zip
+
+            file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+            release_title=$(basename "$file_name" .zip)
+
+            echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
+            echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
+            echo "RELEASENAME=$release_title" >> $GITHUB_ENV
+        fi
+
+    - name: Upload to GitHub releases
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        NC='\033[0m'
+        RED='\033[0;31m'
+
+        send_telegram_message() {
+          local message="$1"
+          curl -s -X POST \
+          https://api.telegram.org/bot$botToken/sendMessage \
+          -d chat_id=$chatId \
+          -d text="$message" \
+          -d disable_web_page_preview=true > /dev/null 2>&1
+        }
+
+        gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
+
+        if [[ -f "${{ env.ZIP_FILE }}" ]]; then
+           file_size=$(stat -c%s "${{ env.ZIP_FILE }}")
+           if [[ $file_size -le 2147483648 ]]; then
+              gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "Released on ${{ env.RELEASE_DATE }}"
+              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.ZIP_FILE }} *sum out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*
+              send_telegram_message "${{ env.ZIP_FILE }} Uploaded to GitHub release%0ADownload at: https://github.com/${{ github.repository }}/releases/tag/${{ github.run_id }}"
+           else
+              send_telegram_message "${{ env.ZIP_FILE }} is too large!!! Cannot be uploaded to GitHub release. You can manually upload it from devspace%0AFILE PATH: ${{ env.BUILD_DIR }}/${{ env.ZIP_FILE }}"
+              echo -e ${RED} "#######################################################################"
+              echo -e ${RED} "##          ROM ZIP FILE IS TOO LARGE FOR GITHUB RELEASE!!           ##"
+              echo -e ${RED} "##         GO TO YOUR DEVSPACE AND UPLOAD IT SOMEWHERE ELSE          ##"
+              echo -e ${RED} "#######################################################################${NC}"
+              echo "FILE PATH: ${{ env.BUILD_DIR }}/${{ env.ZIP_FILE }}"
+           fi
+        fi
