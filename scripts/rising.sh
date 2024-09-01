@@ -5,15 +5,9 @@ git clone https://github.com/aosp-realm/android_build_manifest.git -b apollo-cr1
 /opt/crave/resync.sh && \
 source build/envsetup.sh && \
 riseup apollo userdebug && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip . && \
 export WITH_GMS=true && \
-export TARGET_DEFAULT_PIXEL_LAUNCHER=true && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip . && \
 export TARGET_CORE_GMS=true && \
 export TARGET_CORE_GMS_EXTRAS=true && \
-export TARGET_DEFAULT_PIXEL_LAUNCHER= && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip .
+export TARGET_DEFAULT_PIXEL_LAUNCHER=true && \
+rise b > /dev/null
 "
