@@ -88,9 +88,11 @@ jobs:
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}_changelog.txt'
 
-            rm -f *ota*.zip
-
-            file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+            rm -f *-ota-*.zip
+            rm -f *-eng*.zip
+            rm -f lineage*ota.zip
+        
+            file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
 
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV

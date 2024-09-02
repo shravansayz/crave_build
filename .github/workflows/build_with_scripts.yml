@@ -185,7 +185,9 @@ jobs:
         rm -rf out
         
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
-        rm -f *ota*.zip
+        rm -f *-ota-*.zip
+        rm -f *-eng*.zip
+        rm -f lineage*ota.zip
         if [ -z "$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')" ]; then
             send_telegram_message "Build for Project: ${{ env.ROM_NAME }}%0ADevice: ${{ env.DEVICE_CODENAME}}%0ASTATUS: Failed or Cancelled%0ACheck Info at: %0Ahttps://github.com/$(echo "${{ github.repository }}" | sed 's@_@\\_@g')/actions/runs/${{ github.run_id }}"
             echo -e ${RED} "#######################################################################"
@@ -201,7 +203,7 @@ jobs:
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}_changelog.txt'
         
-            file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+            file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
 
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV

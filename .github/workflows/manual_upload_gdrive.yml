@@ -67,8 +67,12 @@ jobs:
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
-
-        file_name=$(find . -maxdepth 1 -name '*.zip' ! -name '*ota*' -print | sed 's|^\./||')
+        
+        rm -f *-ota-*.zip
+        rm -f *-eng*.zip
+        rm -f lineage*ota.zip
+        
+        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
         echo $file_name
         bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
         download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
