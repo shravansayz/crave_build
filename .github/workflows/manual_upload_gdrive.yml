@@ -71,7 +71,8 @@ jobs:
         rm -f *-ota-*.zip
         rm -f *-eng*.zip
         rm -f lineage*ota.zip
-        
+        rm -f aosp*ota.zip
+
         file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
         echo $file_name
         bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
