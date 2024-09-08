@@ -1,6 +1,6 @@
 crave run --no-patch -- "
 source build/envsetup.sh && \
-brunch statix_apollo-ap2a-user > /dev/null"
+brunch statix_apollo-ap3a-userdebug"
 
 #rm -rf .repo/local_manifests ; \
 #repo init --depth=1 --no-repo-verify -u https://github.com/StatiXOS/android_manifest.git -b udc-qpr3 -g default,-mips,-darwin,-notdefault && \
