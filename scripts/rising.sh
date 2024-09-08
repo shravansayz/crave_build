@@ -16,4 +16,3 @@ export TARGET_CORE_GMS_EXTRAS=true && \
 rise b > /dev/null && \
 mv out/target/product/apollo/RisingOS*.zip .
 "
-exit 1
