@@ -4,4 +4,5 @@ git clone https://github.com/aosp-realm/android_build_manifest.git -b apollo-pos
 /opt/crave/resync.sh && \
 source build/envsetup.sh && \
 lunch aosp_apollo-ap2a-user && \
-mka bacon > /dev/null
+make installclean ; \
+mka bacon
