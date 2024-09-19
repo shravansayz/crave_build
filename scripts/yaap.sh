@@ -4,6 +4,6 @@ git clone https://github.com/aosp-realm/android_build_manifest.git -b apollo-yaa
 /opt/crave/resync.sh && \
 export TARGET_BUILD_GAPPS=true ; \
 source build/envsetup.sh && \
-lunch yaap_apollo-userdebug && \
+lunch yaap_apollo-user && \
 make installclean ; \
 m yaap
