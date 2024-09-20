@@ -81,7 +81,7 @@ jobs:
             rm -f *sum
             rm -rf out
 
-            crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip' \
+            crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.zip' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*sum' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}.json' \
