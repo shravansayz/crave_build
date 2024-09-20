@@ -99,7 +99,6 @@ jobs:
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
             echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
             echo "RELEASENAME=$release_title" >> $GITHUB_ENV
-        fi
 
     - name: Upload to GitHub releases
       run: |
