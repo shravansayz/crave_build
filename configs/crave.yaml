@@ -1,3 +1,5 @@
+aosp:
+  ignoreClientHostname: true
 LOS 21:
   ignoreClientHostname: true
 PixelOS:

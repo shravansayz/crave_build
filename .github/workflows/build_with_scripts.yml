@@ -14,6 +14,7 @@ on:
         required: true
         type: choice
         options:
+          - 'AOSP'
           - 'LineageOS'
           - 'DerpFest'
           - 'PixelOS'
@@ -75,6 +76,10 @@ jobs:
     - name: Set-up build dir
       run: |
         case "${{ github.event.inputs.BASE_PROJECT }}" in
+        "AOSP")
+          export PROJECTFOLDER="/crave-devspaces/AOSP"
+          export PROJECTID="35"
+        ;;
         "DerpFest")
           export PROJECTFOLDER="/crave-devspaces/DerpFest-AOSP"
           export PROJECTID="64"
