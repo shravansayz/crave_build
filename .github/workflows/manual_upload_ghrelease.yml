@@ -92,6 +92,7 @@ jobs:
             rm -f *-eng*.zip
             rm -f lineage*ota.zip
             rm -f aosp*ota.zip
+            rm -f statix*ota.zip
         
             file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
