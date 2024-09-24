@@ -102,13 +102,15 @@ jobs:
           FILE_NAME="${{ needs.upload.outputs.FILE_NAME }}"
           rm -rf ${{ github.workspace }}/*
           wget $DOWNLOAD_LINK
-          
-          if [ "$(basename *.zip)" != "$FILE_NAME" ]; then
-             mv *.zip "$FILE_NAME"
+
+          ROM_ZIP=$(ls *.zip)
+
+          if [ "$ROM_ZIP" != "$FILE_NAME" ]; then
+             mv "$ROM_ZIP" "$FILE_NAME"
           fi
 
           echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
-          
+       
       - name: Upload to Google Drive
         uses: adityak74/google-drive-upload-git-action@v0.3
         with:
