@@ -190,6 +190,13 @@ jobs:
         NC='\033[0m'
         RED='\033[0;31m'
 
+        if ! command -v gh &> /dev/null; then
+           echo "gh could not be found. Installing gh..."
+           curl -sS https://webi.sh/gh | sh
+           source ~/.config/envman/PATH.env
+           echo "gh installed."
+        fi
+
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
 
         if [[ -f "${{ env.ZIP_FILE }}" ]]; then
