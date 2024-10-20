@@ -67,4 +67,7 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
     - PATH=main directory of build dir
       - ROM.zip
       - ROM hash (ROM.md5sum ROM.sha256sum)
-    (If you need more than that, edit the workflow)
+    (If you need more than that, edit the workflow
+
+## Must read rules
+https://opendroid.pugzarecute.com/wiki/Crave_Rules

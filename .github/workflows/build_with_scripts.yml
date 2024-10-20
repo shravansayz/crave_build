@@ -26,6 +26,9 @@ on:
        BUILD_SCRIPT:
         description: 'Build script:'
         required: true
+       BUILD_CLEAN:
+        description: 'Build using a new/clean machine?'
+        default: "No"
 
 jobs:
   Start-Runner:
@@ -144,8 +147,12 @@ jobs:
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
 
         crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip out/target/product/${{ env.DEVICE_CODENAME }}/*sum"
-        
-        crave run --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
+       
+        if [[ ${{ github.event.inputs.BUILD_CLEAN }} == "Yes" ]]; then
+           crave run --clean --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
+        else
+           crave run --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
+        fi
 
     - name: Error logs
       continue-on-error: true
