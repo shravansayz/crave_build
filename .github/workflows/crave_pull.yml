@@ -1,0 +1,127 @@
+#
+# Copyright (C) 2024 Antonino Scordino
+# Copyright (C) 2024 Souhrud Reddy
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+name: Crave pull in devspace
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE_CODENAME:
+        description: 'Device Codename'
+        default: apollo
+        required: true
+
+jobs:
+  Start-Runner:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tmux
+
+      # Download and configure 'crave'.
+    - name: Configure the 'crave' environment
+      run: |
+        mkdir ${HOME}/bin/
+        curl -s https://raw.githubusercontent.com/accupara/crave/master/get_crave.sh | bash -s --
+        mv ${PWD}/crave ${HOME}/bin/
+        sudo ln -sf /home/${USER}/bin/crave /usr/bin/crave
+        envsubst < ${PWD}/crave.conf.sample >> ${PWD}/crave.conf
+        rm -rf ${PWD}/crave.conf.sample
+
+      env:
+        CRAVE_USERNAME: ${{  secrets.CRAVE_USERNAME  }}
+        CRAVE_TOKEN: ${{  secrets.CRAVE_TOKEN  }}
+
+    - name: Run crave devspace
+      run: |
+        crave devspace -- "
+        echo "Looking for runner..."
+          # Look for whether there's a runner folder set up
+        if [ -f actions-runner/run.sh ] ; then
+          echo -e '\e[32mRunner found! Restarting it...\e[0m'
+        else
+          echo -e '\e[31mError! Runner not found!\e[0m'
+          exit 1
+        fi
+
+        if tmux has-session -t ghactions; then 
+          echo -e '\e[32mRunner is already Running\e[0m'
+        else 
+          tmux kill-session -t ghactions;
+          tmux new-session -d -s ghactions 
+          tmux send-keys -t ghactions './actions-runner/run.sh' Enter 
+          echo -e '\e[32mRunner Started\e[0m'
+        fi "
+
+  pull:
+    timeout-minutes: 960
+    name: Crave-pull objects to devspace
+    runs-on: self-hosted
+
+    steps:
+
+    - name: Build dir
+      run: |
+        build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
+        echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
+
+    - name: Running "crave pull"
+      continue-on-error: false
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+            rm -rf *.zip *sum out compiled
+
+            crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.zip' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.sha256sum' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
+
+            rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
+            
+            mkdir -p compiled
+            
+            file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
+
+            mv -f "$file_name" "${{ env.BUILD_DIR }}/compiled/" || true
+            mv -f $file_name.sha256sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
+            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img" "${{ env.BUILD_DIR }}/compiled/" || true
+            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
+            
+            rm -rf out
+
+    - name: Display files information
+      run: |
+        cd "${{ env.BUILD_DIR }}/compiled"
+
+        echo "FILE PATH: ${{ env.BUILD_DIR }}/compiled"
+        echo "File details:"
+        find . -type f -exec ls -lh {} \; | awk '{print $9 ": " $5}'
+
+        echo "Comparing ZIP file hash to SHA256 checksum:"
+        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
+
+        if [ -f "$file_name.sha256sum" ]; then
+          sha256=$(sha256sum "$file_name" | awk '{print $1}')
+          expected_sha256=$(cat "$file_name.sha256sum" | awk '{print $1}')
+          echo "Computed SHA256: $sha256"
+          echo "Expected SHA256: $expected_sha256"
+          if [ "$sha256" = "$expected_sha256" ]; then
+            echo -e '\e[32mSHA256 checksum matches!\e[0m'
+          else
+            echo -e '\e[31mSHA256 checksum does NOT match!\e[0m'
+            exit 1
+          fi
+        else
+          echo -e '\e[31mNo SHA256 checksum file found for $file_name\e[0m'
+          exit 1
+        fi

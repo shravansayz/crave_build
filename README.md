@@ -54,19 +54,19 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 
 ## Important Information
 
+- **Google Drive Upload:** `gdrive_upload.yml`. This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
+
 - **Dirty Builds:** If you wish to perform a dirty build after a successful one, **DO NOT CHANGE THE BASE PROJECT**! Ensure you're using the same project where the initial successful build is.
   
 - **Release Limits:** Due to GitHub's 2GB per file limit on releases, if your compiled ROM zip is below 2GB, it will be uploaded to this repository's release page. If it exceeds 2GB, it will remain in your devspace for you to upload elsewhere. (Go to foss.crave.io to log in to your devspace)
 
 - **Compiled Objects:** **DO NOT START ANOTHER BUILD WITHOUT SECURING THE COMPILED OBJECTS FROM THE PREVIOUS BUILD**! (Upload or move it out of the build directory) Compiled objects will be pulled to devspace but deleted upon starting another build to avoid clogging devspace storage.
   - Objects that will be pulled to devspace are:
-    - PATH=out/target/product/device/
+    - PATH=/crave-devspaces/`Base Project Folder`/compiled
       - recovery.img
       - boot.img
-      - changelog.txt and json (if it exists)
-    - PATH=main directory of build dir
       - ROM.zip
-      - ROM hash (ROM.md5sum ROM.sha256sum)
+      - ROM.zip.sha256sum
     (If you need more than that, edit the workflow
 
 ## Must read rules

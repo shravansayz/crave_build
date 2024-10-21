@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-name: Build in Crave.io
+name: Build in foss.crave.io
 on:
   workflow_dispatch:
     inputs:
@@ -27,8 +27,8 @@ on:
         description: 'Build script:'
         required: true
        BUILD_CLEAN:
-        description: 'Build using a new/clean machine?'
-        default: "No"
+        description: 'Build using a new/clean machine? (yes/no)'
+        default: "no"
 
 jobs:
   Start-Runner:
@@ -80,7 +80,7 @@ jobs:
 
   build:
     timeout-minutes: 960
-    name: Build using foss.crave.io
+    name: Build in foss.crave.io
     runs-on: self-hosted
     
     steps:
@@ -140,7 +140,7 @@ jobs:
             curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/configs/crave.yaml > .repo/manifests/crave.yaml
         fi
 
-    - name: Start compilation (Queue)
+    - name: Start Build (Queue)
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -148,14 +148,15 @@ jobs:
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
 
         crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip out/target/product/${{ env.DEVICE_CODENAME }}/*sum"
-       
-        if [[ ${{ github.event.inputs.BUILD_CLEAN }} == "Yes" ]]; then
+        
+        echo -e '\e[32mYour build is now on queue, check it on foss.crave.io\e[0m'
+        if [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]]; then
            crave run --clean --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
         else
            crave run --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
         fi
 
-    - name: Error logs
+    - name: Error log
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -174,16 +175,10 @@ jobs:
         NC='\033[0m'
         RED='\033[0;31m'
 
-        rm -f *.zip
-        rm -f *sum
-        rm -rf out
-        
+        rm -rf *.zip *sum out compiled
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
-        rm -f *-ota-*.zip
-        rm -f *-eng*.zip
-        rm -f lineage*ota.zip
-        rm -f aosp*ota.zip
-        rm -f statix*ota.zip
+        rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
+
         if [ -z "$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')" ]; then
             echo -e ${RED} "#######################################################################"
             echo -e ${RED} "##                    ROM ZIP FILE NOT FOUND!!!                      ##"
@@ -193,17 +188,51 @@ jobs:
             exit 1
         else
             crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*sum' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}.json' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.sha256sum' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/${{ github.event.inputs.DEVICE_CODENAME }}_changelog.txt'
-        
+
+            mkdir -p compiled
+            
             file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
+
+            mv -f "$file_name" "${{ env.BUILD_DIR }}/compiled/" || true
+            mv -f $file_name.sha256sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
+            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img" "${{ env.BUILD_DIR }}/compiled/" || true
+            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
+            
+            rm -rf out
 
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
             echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
             echo "RELEASENAME=$release_title" >> $GITHUB_ENV
+        fi
+
+    - name: Display files information
+      run: |
+        cd "${{ env.BUILD_DIR }}/compiled"
+
+        echo "FILE PATH: ${{ env.BUILD_DIR }}/compiled"
+        echo "File details:"
+        find . -type f -exec ls -lh {} \; | awk '{print $9 ": " $5}'
+
+        echo "Comparing ZIP file hash to SHA256 checksum:"
+        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
+
+        if [ -f "$file_name.sha256sum" ]; then
+          sha256=$(sha256sum "$file_name" | awk '{print $1}')
+          expected_sha256=$(cat "$file_name.sha256sum" | awk '{print $1}')
+          echo "Computed SHA256: $sha256"
+          echo "Expected SHA256: $expected_sha256"
+          if [ "$sha256" = "$expected_sha256" ]; then
+            echo -e '\e[32mSHA256 checksum matches!\e[0m'
+          else
+            echo -e '\e[31mSHA256 checksum does NOT match!\e[0m'
+            exit 1
+          fi
+        else
+          echo -e '\e[31mNo SHA256 checksum file found for $file_name\e[0m'
+          exit 1
         fi
 
     - name: Upload to GitHub releases
@@ -222,17 +251,17 @@ jobs:
 
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
 
-        if [[ -f "${{ env.ZIP_FILE }}" ]]; then
-           file_size=$(stat -c%s "${{ env.ZIP_FILE }}")
+        if [[ -f "${{ env.BUILD_DIR }}/compiled/${{ env.ZIP_FILE }}" ]]; then
+           file_size=$(stat -c%s "${{ env.BUILD_DIR }}/compiled/${{ env.ZIP_FILE }}")
            if [[ $file_size -le 2147483648 ]]; then
               gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "Released on ${{ env.RELEASE_DATE }}"
-              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.ZIP_FILE }} *sum out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*
+              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.BUILD_DIR }}/compiled/*
            else
               echo -e ${RED} "#######################################################################"
               echo -e ${RED} "##          ROM ZIP FILE IS TOO LARGE FOR GITHUB RELEASE!!           ##"
               echo -e ${RED} "##         GO TO YOUR DEVSPACE AND UPLOAD IT SOMEWHERE ELSE          ##"
               echo -e ${RED} "#######################################################################${NC}"
-              echo "FILE PATH: ${{ env.BUILD_DIR }}/${{ env.ZIP_FILE }}"
+              exit 1
            fi
         fi
 
