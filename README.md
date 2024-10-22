@@ -54,7 +54,7 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 
 ## Important Information
 
-- **Google Drive Upload:** `gdrive_upload.yml`. This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
+- **Google Drive Upload:** `gdrive_upload.yml` This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
 
 - **Dirty Builds:** If you wish to perform a dirty build after a successful one, **DO NOT CHANGE THE BASE PROJECT**! Ensure you're using the same project where the initial successful build is.
   
@@ -66,8 +66,7 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
       - recovery.img
       - boot.img
       - ROM.zip
-      - ROM.zip.sha256sum
-    (If you need more than that, edit the workflow
+      - ROM.zip.hash
 
 ## Must read rules
 https://opendroid.pugzarecute.com/wiki/Crave_Rules
