@@ -103,7 +103,7 @@ jobs:
           rm -rf ${{ github.workspace }}/*
           wget $DOWNLOAD_LINK
 
-          ROM_ZIP=$(ls *.zip)
+          ROM_ZIP=$(ls -- *.zip)
 
           if [ "$ROM_ZIP" != "$FILE_NAME" ]; then
              mv "$ROM_ZIP" "$FILE_NAME"
