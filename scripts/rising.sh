@@ -5,13 +5,10 @@ git clone https://github.com/aosp-realm/android_build_manifest.git -b apollo-ris
 export BUILD_RISING=true
 source build/envsetup.sh && \
 riseup apollo user && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip . && \
+rise b && \
 export WITH_GMS=true && \
 export TARGET_DEFAULT_PIXEL_LAUNCHER=true && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip . && \
+rise b && \
 export TARGET_CORE_GMS=true && \
 export TARGET_CORE_GMS_EXTRAS=true && \
-rise b > /dev/null && \
-mv out/target/product/apollo/RisingOS*.zip .
+rise b && \
