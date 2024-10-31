@@ -52,9 +52,11 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 3. **Execute the Workflow:**
    - Run the workflow.
 
-## Important Information
+## Important Informations
 
 - **Google Drive Upload:** `gdrive_upload.yml` This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
+
+- **PixelDrain Upload:** To use this workflow, create a repository secret named `PD_API` and enter your API KEY
 
 - **Dirty Builds:** If you wish to perform a dirty build after a successful one, **DO NOT CHANGE THE BASE PROJECT**! Ensure you're using the same project where the initial successful build is.
   
