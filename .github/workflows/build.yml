@@ -277,7 +277,6 @@ jobs:
               echo -e ${RED} "##          ROM ZIP FILE IS TOO LARGE FOR GITHUB RELEASE!!           ##"
               echo -e ${RED} "##         GO TO YOUR DEVSPACE AND UPLOAD IT SOMEWHERE ELSE          ##"
               echo -e ${RED} "#######################################################################${NC}"
-              exit 1
            fi
         fi
 
