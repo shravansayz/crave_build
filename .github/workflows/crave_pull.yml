@@ -86,6 +86,7 @@ jobs:
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.sha256sum' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.md5sum' \
             'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
+            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img'
 
             rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
             
@@ -98,6 +99,7 @@ jobs:
             mv -f $file_name.md5sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
             mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img" "${{ env.BUILD_DIR }}/compiled/" || true
             mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
+            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img" "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
             
             rm -rf out
 
