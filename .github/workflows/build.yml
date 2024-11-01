@@ -38,6 +38,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Check Credentials
+      run: |
+        if [[ -z "${{ secrets.CRAVE_TOKEN }}" || -z "${{ secrets.CRAVE_USERNAME }}" ]]; then
+          echo -e '\e[32mCrave Credentials Not Configured! Exiting...\e[0m'
+          exit 1
+        fi
+        bash configs/env-checker.sh
+
     - name: Set up environment
       run: |
         sudo apt-get update
