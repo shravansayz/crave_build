@@ -41,7 +41,7 @@ jobs:
     - name: Check Credentials
       run: |
         if [[ -z "${{ secrets.CRAVE_TOKEN }}" || -z "${{ secrets.CRAVE_USERNAME }}" ]]; then
-          echo -e '\e[32mCrave Credentials Not Configured! Exiting...\e[0m'
+          echo -e '\e[31mCrave Credentials Not Configured! Exiting...\e[0m'
           exit 1
         fi
         bash configs/env-checker.sh
@@ -148,6 +148,12 @@ jobs:
             curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/configs/crave.yaml > .repo/manifests/crave.yaml
         fi
 
+    - name: Clean compiled objects from previous build
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        rm -rf *.zip *sum out compiled
+
     - name: Start Build (Queue)
       continue-on-error: true
       run: |
@@ -175,7 +181,7 @@ jobs:
         rm -rf out
         exit 0
 
-    - name: Preparing compiled objects
+    - name: Pulling compiled objects
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -183,7 +189,6 @@ jobs:
         NC='\033[0m'
         RED='\033[0;31m'
 
-        rm -rf *.zip *sum out compiled
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
         rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
 
@@ -213,8 +218,6 @@ jobs:
             mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
             mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img" "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
             
-            rm -rf out
-
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
             echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
             echo "RELEASENAME=$release_title" >> $GITHUB_ENV
