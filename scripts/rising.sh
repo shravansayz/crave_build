@@ -6,10 +6,13 @@ cd vendor/lineage && git fetch https://github.com/LineageOS/android_vendor_linea
 source build/envsetup.sh && \
 riseup apollo user && \
 rise b && \
+mv out/target/product/*/RisingOS*zip . ; \
 export WITH_GMS=true && \
 export TARGET_DEFAULT_PIXEL_LAUNCHER=true && \
 rise b && \
+mv out/target/product/*/RisingOS*zip . ; \
 export TARGET_DEFAULT_PIXEL_LAUNCHER=true && \
 export TARGET_CORE_GMS=true && \
 export TARGET_CORE_GMS_EXTRAS=true && \
 rise b
+mv out/target/product/*/RisingOS*zip .
