@@ -69,75 +69,34 @@ jobs:
 
     steps:
 
-    - name: Build dir
+    - name: Initialize build directory
       run: |
         build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
         echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
+        echo "DEVICE_CODENAME=${{ github.event.inputs.DEVICE_CODENAME }}" >> $GITHUB_ENV
 
     - name: Running "crave pull"
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
 
-            rm -rf *.zip *sum out compiled
+            rm -rf *.zip *.sha256sum *.md5sum *.img out
 
-            crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.zip' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.sha256sum' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.md5sum' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img'
+            crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/recovery*img' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/*.sha256sum' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/*.md5sum' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/boot*img' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/vendor_boot*img'
 
             rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
+            mkdir -p out
+            mv -f *.zip *.sha256sum *.md5sum *.img out/ || true
             
-            mkdir -p compiled
-            
-            file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
-
-            mv -f "$file_name" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f $file_name.sha256sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
-            mv -f $file_name.md5sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img" "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
-            
-            rm -rf out
-
     - name: Display files information
       run: |
-        cd "${{ env.BUILD_DIR }}/compiled"
+        cd "${{ env.BUILD_DIR }}/out"
 
-        echo "FILE PATH: ${{ env.BUILD_DIR }}/compiled"
+        echo "FILE PATH: ${{ env.BUILD_DIR }}/out"
         echo "File details:"
         find . -type f -exec ls -lh {} \; | awk '{print $9 ": " $5}'
-
-        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
-
-        if [ -f "$file_name.sha256sum" ]; then
-          echo "Comparing ZIP file hash to SHA256 checksum:"
-          sha256=$(sha256sum "$file_name" | awk '{print $1}')
-          expected_sha256=$(awk '{print $1}' "$file_name.sha256sum")
-          echo "Computed SHA256: $sha256"
-          echo "Expected SHA256: $expected_sha256"
-          if [ "$sha256" = "$expected_sha256" ]; then
-            echo -e '\e[32mSHA256 checksum matches!\e[0m'
-          else
-            echo -e '\e[31mSHA256 checksum does NOT match!\e[0m'
-            exit 1
-          fi
-        elif [ -f "$file_name.md5sum" ]; then
-          echo "Comparing ZIP file hash to MD5 checksum:"
-          md5=$(md5sum "$file_name" | awk '{print $1}')
-          expected_md5=$(awk '{print $1}' "$file_name.md5sum")
-          echo "Computed MD5: $md5"
-          echo "Expected MD5: $expected_md5"
-          if [ "$md5" = "$expected_md5" ]; then
-            echo -e '\e[32mMD5 checksum matches!\e[0m'
-          else
-            echo -e '\e[31mMD5 checksum does NOT match!\e[0m'
-            exit 1
-          fi
-        else
-          echo -e '\e[31mNo SHA256 or MD5 checksum file found for $file_name\e[0m'
-          exit 1
-        fi

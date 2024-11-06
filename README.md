@@ -64,7 +64,7 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 
 - **Compiled Objects:** **DO NOT START ANOTHER BUILD WITHOUT SECURING THE COMPILED OBJECTS FROM THE PREVIOUS BUILD**! (Upload or move it out of the build directory) Compiled objects will be pulled to devspace but deleted upon starting another build to avoid clogging devspace storage.
   - Objects that will be pulled to devspace are:
-    - PATH=/crave-devspaces/`Base Project Folder`/compiled
+    - PATH=/crave-devspaces/`Base Project Folder`/out
       - recovery.img
       - boot.img
       - ROM.zip

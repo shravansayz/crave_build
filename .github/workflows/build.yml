@@ -38,14 +38,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Check Credentials
-      run: |
-        if [[ -z "${{ secrets.CRAVE_TOKEN }}" || -z "${{ secrets.CRAVE_USERNAME }}" ]]; then
-          echo -e '\e[31mCrave Credentials Not Configured! Exiting...\e[0m'
-          exit 1
-        fi
-        bash configs/env-checker.sh
-
     - name: Set up environment
       run: |
         sudo apt-get update
@@ -85,62 +77,75 @@ jobs:
           tmux send-keys -t ghactions './actions-runner/run.sh' Enter 
           echo -e '\e[32mRunner Started\e[0m'
         fi "
+        
+  prepare:
+    name: Prepare for Building
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check-out to repository
+      uses: actions/checkout@v4
 
+    - name: Check Credentials
+      run: |
+        if [[ -z "${{ secrets.CRAVE_TOKEN }}" || -z "${{ secrets.CRAVE_USERNAME }}" ]]; then
+          echo -e '\e[31mCrave Credentials Not Configured! Exiting...\e[0m'
+          exit 1
+        fi
+        bash configs/env-checker.sh
+
+    - name: Set Project variables
+      id: proj-variables
+      run: |
+        case "${{ github.event.inputs.BASE_PROJECT }}" in
+          "AOSP") export PROJECTFOLDER="/crave-devspaces/AOSP"; export PROJECTID="35";;
+          "DerpFest") export PROJECTFOLDER="/crave-devspaces/DerpFest-AOSP"; export PROJECTID="64";;
+          "LineageOS") export PROJECTFOLDER="/crave-devspaces/LineageOS"; export PROJECTID="72";;
+          "PixelOS") export PROJECTFOLDER="/crave-devspaces/PixelOS"; export PROJECTID="82";;
+          "RisingOS") export PROJECTFOLDER="/crave-devspaces/RisingOS"; export PROJECTID="86";;
+        esac
+        
+        echo "PROJECTFOLDER=$PROJECTFOLDER" >> $GITHUB_ENV
+        echo "PROJECTID=$PROJECTID" >> $GITHUB_ENV
+        
+    outputs:
+      PROJECTFOLDER: ${{ env.PROJECTFOLDER }}
+      PROJECTID: ${{ env.PROJECTID }}
+        
   build:
+    needs: prepare
     timeout-minutes: 960
     name: Build in foss.crave.io
     runs-on: self-hosted
     
     steps:
     
-      # Create a build dir
-    - name: Set-up build dir
+    - name: Initialize build directory
       run: |
-        case "${{ github.event.inputs.BASE_PROJECT }}" in
-        "AOSP")
-          export PROJECTFOLDER="/crave-devspaces/AOSP"
-          export PROJECTID="35"
-        ;;
-        "DerpFest")
-          export PROJECTFOLDER="/crave-devspaces/DerpFest-AOSP"
-          export PROJECTID="64"
-        ;;
-        "LineageOS")
-          export PROJECTFOLDER="/crave-devspaces/LineageOS"
-          export PROJECTID="72"
-        ;;
-        "PixelOS")
-          export PROJECTFOLDER="/crave-devspaces/PixelOS"
-          export PROJECTID="82"
-        ;;
-        "RisingOS")
-          export PROJECTFOLDER="/crave-devspaces/RisingOS"
-          export PROJECTID="86"
-        ;;
-        esac
+        PROJECTFOLDER="${{ needs.prepare.outputs.PROJECTFOLDER }}"
+        PROJECTID="${{ needs.prepare.outputs.PROJECTID }}"
         
-          existing_clones=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
+        existing_clones=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
           
-          for dir in $existing_clones; do
-            if [[ "$dir" != "$PROJECTFOLDER" ]]; then
-              echo "Removing old project directory: $dir"
-              crave clone destroy -y "$dir"
+        for dir in $existing_clones; do
+          if [[ "$dir" != "$PROJECTFOLDER" ]]; then
+            echo "Removing old project directory: $dir"
+            crave clone destroy -y "$dir"
           fi
-          done
+        done
 
-          # Check if the current project directory exists or create it
-          if grep -q "$PROJECTFOLDER" <<< "$existing_clones" && [ "${DCDEVSPACE}" == "1" ]; then
-            echo "Base project $PROJECTFOLDER build directory exists! Reusing it."
-            echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
-          else
-            crave clone create --projectID "$PROJECTID" "$PROJECTFOLDER"
-            echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
-          fi
+        # Check if the current project directory exists or create it
+        if grep -q "$PROJECTFOLDER" <<< "$existing_clones" && [ "${DCDEVSPACE}" == "1" ]; then
+          echo "Base project $PROJECTFOLDER build directory exists! Reusing it."
+          echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
+        else
+          crave clone create --projectID "$PROJECTID" "$PROJECTFOLDER"
+          echo "BUILD_DIR=$PROJECTFOLDER" >> $GITHUB_ENV
+        fi
 
         echo "DEVICE_CODENAME=${{ github.event.inputs.DEVICE_CODENAME }}" >> $GITHUB_ENV
         echo "Building on $PROJECTFOLDER project"
 
-    - name: Set-up persistent hostname
+    - name: Set up persistent hostname
       run: |
         cd ${{ env.BUILD_DIR }}
         
@@ -152,9 +157,9 @@ jobs:
       run: |
         cd ${{ env.BUILD_DIR }}
 
-        rm -rf *.zip *sum out compiled
+        rm -rf *.zip *sum *.img out
 
-    - name: Start Build (Queue)
+    - name: Queue build
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -164,11 +169,8 @@ jobs:
         crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip out/target/product/${{ env.DEVICE_CODENAME }}/*sum"
         
         echo -e '\e[32mYour build is now on queue, check it on foss.crave.io\e[0m'
-        if [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]]; then
-           crave run --clean --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
-        else
-           crave run --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
-        fi
+        [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]] && CLEAN_FLAG="--clean" || CLEAN_FLAG=""
+        crave run $CLEAN_FLAG --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
 
     - name: Error log
       continue-on-error: true
@@ -181,7 +183,7 @@ jobs:
         rm -rf out
         exit 0
 
-    - name: Pulling compiled objects
+    - name: Pulling compiled objects from build machine
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -193,30 +195,22 @@ jobs:
         rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
 
         if [ -z "$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')" ]; then
-            echo -e ${RED} "#######################################################################"
-            echo -e ${RED} "##                    ROM ZIP FILE NOT FOUND!!!                      ##"
-            echo -e ${RED} "##     THE BUILD MIGHT'VE FAILED, CANCELLED OR THE RUNNER DIED.      ##"
-            echo -e ${RED} "##            CHECK THE ERROR LOG OR GO TO FOSS.CRAVE.IO             ##"
-            echo -e ${RED} "#######################################################################${NC}"
+            echo -e '\e[31mERROR! The build might have failed, cancelled, or the runner died!\e[0m'
+            echo -e '\e[31mCheck the error logs or go to foss.crave.io\e[0m'
             exit 1
         else
-            crave pull 'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.sha256sum' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/*.md5sum' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img' \
-            'out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img'
+            crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/recovery*img' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/*.sha256sum' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/*.md5sum' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/boot*img' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/vendor_boot*img'
 
-            mkdir -p compiled
+            mkdir -p out
             
             file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
 
-            mv -f "$file_name" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f $file_name.sha256sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
-            mv -f $file_name.md5sum "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/recovery.img" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/boot.img" "${{ env.BUILD_DIR }}/compiled/" || true
-            mv -f "out/target/product/${{ github.event.inputs.DEVICE_CODENAME }}/vendor_boot.img" "${{ env.BUILD_DIR }}/compiled/" 2>/dev/null || true
+            mv -f *.zip *.sha256sum *.md5sum *.img out/ || true
             
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
             echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
@@ -225,42 +219,11 @@ jobs:
 
     - name: Display files information
       run: |
-        cd "${{ env.BUILD_DIR }}/compiled"
+        cd "${{ env.BUILD_DIR }}/out"
 
-        echo "FILE PATH: ${{ env.BUILD_DIR }}/compiled"
+        echo "FILE PATH: ${{ env.BUILD_DIR }}/out"
         echo "File details:"
         find . -type f -exec ls -lh {} \; | awk '{print $9 ": " $5}'
-
-        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
-
-        if [ -f "$file_name.sha256sum" ]; then
-          echo "Comparing ZIP file hash to SHA256 checksum:"
-          sha256=$(sha256sum "$file_name" | awk '{print $1}')
-          expected_sha256=$(awk '{print $1}' "$file_name.sha256sum")
-          echo "Computed SHA256: $sha256"
-          echo "Expected SHA256: $expected_sha256"
-          if [ "$sha256" = "$expected_sha256" ]; then
-            echo -e '\e[32mSHA256 checksum matches!\e[0m'
-          else
-            echo -e '\e[31mSHA256 checksum does NOT match!\e[0m'
-            exit 1
-          fi
-        elif [ -f "$file_name.md5sum" ]; then
-          echo "Comparing ZIP file hash to MD5 checksum:"
-          md5=$(md5sum "$file_name" | awk '{print $1}')
-          expected_md5=$(awk '{print $1}' "$file_name.md5sum")
-          echo "Computed MD5: $md5"
-          echo "Expected MD5: $expected_md5"
-          if [ "$md5" = "$expected_md5" ]; then
-            echo -e '\e[32mMD5 checksum matches!\e[0m'
-          else
-            echo -e '\e[31mMD5 checksum does NOT match!\e[0m'
-            exit 1
-          fi
-        else
-          echo -e '\e[31mNo SHA256 or MD5 checksum file found for $file_name\e[0m'
-          exit 1
-        fi
 
     - name: Upload to GitHub releases
       run: |
@@ -278,16 +241,14 @@ jobs:
 
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
 
-        if [[ -f "${{ env.BUILD_DIR }}/compiled/${{ env.ZIP_FILE }}" ]]; then
-           file_size=$(stat -c%s "${{ env.BUILD_DIR }}/compiled/${{ env.ZIP_FILE }}")
+        if [[ -f "${{ env.BUILD_DIR }}/out/${{ env.ZIP_FILE }}" ]]; then
+           file_size=$(stat -c%s "${{ env.BUILD_DIR }}/out/${{ env.ZIP_FILE }}")
            if [[ $file_size -le 2147483648 ]]; then
               gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "Released on ${{ env.RELEASE_DATE }}"
-              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.BUILD_DIR }}/compiled/*
+              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.BUILD_DIR }}/out/*
            else
-              echo -e ${RED} "#######################################################################"
-              echo -e ${RED} "##          ROM ZIP FILE IS TOO LARGE FOR GITHUB RELEASE!!           ##"
-              echo -e ${RED} "##         GO TO YOUR DEVSPACE AND UPLOAD IT SOMEWHERE ELSE          ##"
-              echo -e ${RED} "#######################################################################${NC}"
+            echo -e '\e[31mERROR! ROM zip file is too large for GitHub release!\e[0m'
+            echo -e '\e[31mGo to your devspace and upload it somewhere else!\e[0m'
            fi
         fi
 

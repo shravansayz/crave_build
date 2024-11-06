@@ -64,7 +64,7 @@ jobs:
     
     steps:
     
-    - name: Build dir
+    - name: Initialize build directory
       run: |
         build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
         echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
@@ -72,11 +72,11 @@ jobs:
     - name: Preparing ROM zip
       continue-on-error: false
       run: |
-        cd ${{ env.BUILD_DIR }}
+        cd ${{ env.BUILD_DIR }}/out
 
-        file_name=$(find "${{ env.BUILD_DIR }}/compiled/" -name '*.zip' | sed 's|.*/||')
+        file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
         echo $file_name
-        bash_upload=$(curl -s -F "file=@${{ env.BUILD_DIR }}/compiled/$file_name" bashupload.com)
+        bash_upload=$(curl -s -F "file=@$file_name" bashupload.com)
         download_link=$(echo "$bash_upload" | grep -o 'wget .*' | sed 's/^wget //')
         echo $download_link
         

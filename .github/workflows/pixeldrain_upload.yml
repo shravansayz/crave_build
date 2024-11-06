@@ -64,14 +64,14 @@ jobs:
 
     steps:
 
-    - name: Build dir
+    - name: Initialize build directory
       run: |
         build_dir=$(crave clone list --json | jq -r '.clones[]."Cloned At"')
         echo "BUILD_DIR=$build_dir" >> $GITHUB_ENV
 
     - name: Upload to Pixeldrain
       run: |
-        cd ${{ env.BUILD_DIR }}/compiled
+        cd ${{ env.BUILD_DIR }}/out
 
         if [[ -z "${{ secrets.PD_API }}" ]]; then
           echo -e '\e[31mError! Pixeldrain API key not found!!\e[0m'
