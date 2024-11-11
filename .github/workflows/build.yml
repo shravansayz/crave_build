@@ -153,12 +153,6 @@ jobs:
             curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/configs/crave.yaml > .repo/manifests/crave.yaml
         fi
 
-    - name: Clean compiled objects from previous build
-      run: |
-        cd ${{ env.BUILD_DIR }}
-
-        rm -rf *.zip *sum *.img out
-
     - name: Queue build
       continue-on-error: true
       run: |
@@ -182,6 +176,12 @@ jobs:
         cat out/error.log
         rm -rf out
         exit 0
+
+    - name: Clean compiled objects from previous build
+      run: |
+        cd ${{ env.BUILD_DIR }}
+
+        rm -rf *.zip *sum *.img out
 
     - name: Pulling compiled objects from build machine
       continue-on-error: false
