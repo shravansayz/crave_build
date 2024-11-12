@@ -4,6 +4,8 @@ git clone https://github.com/aosp-realm/android_build_manifest.git -b apollo-der
 /opt/crave/resync.sh && \
 repo forall -c 'git lfs pull' ; \
 export DISABLE_STUB_VALIDATION=true ; \
+export TZ=Asia/Manila ; \
+cd vendor/derp && curl -s https://raw.githubusercontent.com/aosp-realm/ota-stuff/refs/heads/main/0001-tools-Allow-json-to-be-generated-in-all-builds.patch > json.patch && git apply json.patch ; cd ../../ && \
 source build/envsetup.sh && \
 lunch derp_apollo-user && \
 make installclean ; \
