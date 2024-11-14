@@ -203,14 +203,16 @@ jobs:
             'out/target/product/${{ env.DEVICE_CODENAME }}/*.sha256sum' \
             'out/target/product/${{ env.DEVICE_CODENAME }}/*.md5sum' \
             'out/target/product/${{ env.DEVICE_CODENAME }}/boot*img' \
-            'out/target/product/${{ env.DEVICE_CODENAME }}/vendor_boot*img'
+            'out/target/product/${{ env.DEVICE_CODENAME }}/vendor_boot*img' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/${{ env.DEVICE_CODENAME }}*json' \
+            'out/target/product/${{ env.DEVICE_CODENAME }}/${{ env.DEVICE_CODENAME }}*txt'
 
             mkdir -p out
             
             file_name=$(find . -maxdepth 1 -name '*.zip' | sed 's|^\./||')
             release_title=$(basename "$file_name" .zip)
 
-            mv -f *.zip *.sha256sum *.md5sum *.img out/ || true
+            mv -f ${{ env.DEVICE_CODENAME }}*json ${{ env.DEVICE_CODENAME }}*txt *.zip *.sha256sum *.md5sum *.img out/ || true
             
             echo "ZIP_FILE=$file_name" >> $GITHUB_ENV
             echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
@@ -241,15 +243,27 @@ jobs:
 
         gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
 
-        if [[ -f "${{ env.BUILD_DIR }}/out/${{ env.ZIP_FILE }}" ]]; then
-           file_size=$(stat -c%s "${{ env.BUILD_DIR }}/out/${{ env.ZIP_FILE }}")
-           if [[ $file_size -le 2147483648 ]]; then
-              gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "Released on ${{ env.RELEASE_DATE }}"
-              gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.BUILD_DIR }}/out/*
-           else
-            echo -e '\e[31mERROR! ROM zip file is too large for GitHub release!\e[0m'
-            echo -e '\e[31mGo to your devspace and upload it somewhere else!\e[0m'
-           fi
+        if [[ -f "${{ env.ZIP_FILE }}" ]]; then
+            file_size=$(stat -c%s "${{ env.ZIP_FILE }}")
+            if [[ $file_size -gt 2147483648 ]]; then
+                echo -e '\e[31m${{ env.ZIP_FILE }} is too large for GitHub release so it will be skipped!\e[0m'
+                echo -e '\e[31mGo to your devspace and upload it somewhere else!\e[0m'
+                skip_zip=true
+                zip_status="Skipped (too large)"
+            else
+                zip_status="Included"
+            fi
+
+            zip_size=$(numfmt --to=iec $file_size)
+            release_notes="ZIP File: ${{ env.ZIP_FILE }} | Size: $zip_size | Status: $zip_status"
+
+            gh release create ${{ github.run_id }} --repo ${{ github.repository }} --title ${{ env.RELEASENAME }} --notes "$release_notes"
+
+            if [[ "$skip_zip" != true ]]; then
+                gh release upload ${{ github.run_id }} --repo ${{ github.repository }} ${{ env.BUILD_DIR }}/out/*
+            else
+                gh release upload ${{ github.run_id }} --repo ${{ github.repository }} $(find ${{ env.BUILD_DIR }}/out/ -type f ! -name '*.zip')
+            fi
         fi
 
     - name: Execute if the job is cancelled
