@@ -22,7 +22,7 @@ on:
        DEVICE_CODENAME:
         description: "Device codename:"
         required: true
-        default: "apollo"
+        default: "RMX1901"
        BUILD_SCRIPT:
         description: 'Build script:'
         required: true
