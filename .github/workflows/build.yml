@@ -229,7 +229,7 @@ jobs:
 
     - name: Upload to GitHub releases
       run: |
-        cd ${{ env.BUILD_DIR }}
+        cd ${{ env.BUILD_DIR }}/out
 
         NC='\033[0m'
         RED='\033[0;31m'
