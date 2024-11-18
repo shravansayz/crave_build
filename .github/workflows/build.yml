@@ -24,7 +24,7 @@ on:
         required: true
         default: "apollo"
        BUILD_SCRIPT:
-        description: 'Build script:'
+        description: 'Build script raw URL:'
         required: true
        BUILD_CLEAN:
         description: 'Build using a new/clean machine? (yes/no)'
@@ -164,7 +164,7 @@ jobs:
         
         echo -e '\e[32mYour build is now on queue, check it on foss.crave.io\e[0m'
         [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]] && CLEAN_FLAG="--clean" || CLEAN_FLAG=""
-        crave run $CLEAN_FLAG --no-patch -- "curl -s https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/scripts/${{ github.event.inputs.BUILD_SCRIPT }} | bash"
+        crave run $CLEAN_FLAG --no-patch -- "curl -s ${{ github.event.inputs.BUILD_SCRIPT }} | bash"
 
     - name: Error log
       continue-on-error: true

@@ -37,19 +37,15 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 
 ## Starting a Build
 
-1. **Create Your Build Script:**
-   - Inside the repository's `scripts` folder, create your build script with your preferred name.
-   - Add all build commands in the correct order (assuming you're already familiar with AOSP compilation).
-
-2. **Run the Workflow:**
+1. **Run the Workflow:**
    - In the repository's top menu bar, click on `Actions`.
-   - On the left side, select "Build in Crave.io".
+   - On the left side, select "Build in foss.crave.io".
    - On the right side, select "Run workflow".
      - Choose the base project.
      - If your ROM isn't listed, select the closest project and `repo init` the ROM manifest within your build script (refer to existing scripts).
-     - Enter your device codename and the build script to use (located in the `scripts` folder).
+     - Enter your device codename and the build script to use (must be a raw file).
 
-3. **Execute the Workflow:**
+2. **Execute the Workflow:**
    - Run the workflow.
 
 ## Important Informations
