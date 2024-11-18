@@ -52,8 +52,6 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
 
 - **Google Drive Upload:** `gdrive_upload.yml` This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
 
-- **PixelDrain Upload:** To use this workflow, create a repository secret named `PD_API` and enter your API KEY
-
 - **Dirty Builds:** If you wish to perform a dirty build after a successful one, **DO NOT CHANGE THE BASE PROJECT**! Ensure you're using the same project where the initial successful build is.
   
 - **Release Limits:** Due to GitHub's 2GB per file limit on releases, if your compiled ROM zip is below 2GB, it will be uploaded to this repository's release page. If it exceeds 2GB, it will remain in your devspace for you to upload elsewhere. (Go to foss.crave.io to log in to your devspace)
