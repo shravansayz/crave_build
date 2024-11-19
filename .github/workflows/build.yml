@@ -166,7 +166,7 @@ jobs:
         [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]] && CLEAN_FLAG="--clean" || CLEAN_FLAG=""
         crave run $CLEAN_FLAG --no-patch -- "curl -s ${{ github.event.inputs.BUILD_SCRIPT }} | bash"
 
-    - name: Error log
+    - name: Error Log
       continue-on-error: true
       run: |
         cd ${{ env.BUILD_DIR }}
@@ -177,19 +177,16 @@ jobs:
         rm -rf out
         exit 0
 
-    - name: Clean compiled objects from previous build
+    - name: Clean Artifacts from previous Build
       run: |
         cd ${{ env.BUILD_DIR }}
 
         rm -rf *.zip *.sha256sum *.md5sum *.img out ${{ env.DEVICE_CODENAME }}*json ${{ env.DEVICE_CODENAME }}*txt
 
-    - name: Pulling compiled objects from build machine
+    - name: Pull and Validate Build Artifacts
       continue-on-error: false
       run: |
         cd ${{ env.BUILD_DIR }}
-
-        NC='\033[0m'
-        RED='\033[0;31m'
 
         crave pull 'out/target/product/${{ env.DEVICE_CODENAME }}/*.zip'
         rm -f *-ota-*.zip *-eng*.zip lineage*ota.zip aosp*ota.zip statix*ota.zip
