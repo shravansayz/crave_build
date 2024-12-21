@@ -160,7 +160,7 @@ jobs:
 
         jq '.projects = []' ~/crave.conf > tmp && mv tmp ~/crave.conf
 
-        crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip"
+        crave ssh -- "rm -f out/target/product/${{ env.DEVICE_CODENAME }}/*.zip out/target/product/${{ env.DEVICE_CODENAME }}/*sum"
         
         echo -e '\e[32mYour build is now on queue, check it on foss.crave.io\e[0m'
         [[ "${{ github.event.inputs.BUILD_CLEAN }}" == "yes" ]] && CLEAN_FLAG="--clean" || CLEAN_FLAG=""
