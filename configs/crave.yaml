@@ -1,11 +1,5 @@
 aosp:
   ignoreClientHostname: true
-LOS 21:
-  ignoreClientHostname: true
-PixelOS:
-  ignoreClientHostname: true
-DerpFest-aosp:
-  ignoreClientHostname: true
-Rising OS:
+LOS 22.1:
   ignoreClientHostname: true
 
