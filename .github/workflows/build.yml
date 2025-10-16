@@ -16,13 +16,9 @@ on:
         options:
           - 'AOSP'
           - 'LineageOS'
-          - 'DerpFest'
-          - 'PixelOS'
-          - 'RisingOS'
        DEVICE_CODENAME:
         description: "Device codename:"
         required: true
-        default: "apollo"
        BUILD_SCRIPT:
         description: 'Build script raw URL:'
         required: true
@@ -98,10 +94,7 @@ jobs:
       run: |
         case "${{ github.event.inputs.BASE_PROJECT }}" in
           "AOSP") export PROJECTFOLDER="/crave-devspaces/AOSP"; export PROJECTID="35";;
-          "DerpFest") export PROJECTFOLDER="/crave-devspaces/DerpFest-AOSP"; export PROJECTID="64";;
-          "LineageOS") export PROJECTFOLDER="/crave-devspaces/LineageOS"; export PROJECTID="72";;
-          "PixelOS") export PROJECTFOLDER="/crave-devspaces/PixelOS"; export PROJECTID="82";;
-          "RisingOS") export PROJECTFOLDER="/crave-devspaces/RisingOS"; export PROJECTID="86";;
+          "LineageOS") export PROJECTFOLDER="/crave-devspaces/LineageOS"; export PROJECTID="93";;
         esac
         
         echo "PROJECTFOLDER=$PROJECTFOLDER" >> $GITHUB_ENV
