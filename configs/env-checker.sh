@@ -27,7 +27,7 @@ fi
 # Check if server is set to devspace.crave.io
 if grep -q "\"server\": \"https://devspace.crave.io/api\"" "crave.conf.sample"; then
   echo "Devspace.crave.io is the public instance and does not support building android!"
-  echo "Get a foss.crave.io account. To know more, read the docs: https://opendroid.pugzarecute.com/wiki/Crave_Devspace#getting-a-fosscraveiohttpsfosscraveio-account"
+  echo "Get a foss.crave.io account. To know more, read the docs: https://fosson.top/crave/getting-started/introduction.html#getting-an-account"
   echo "Exiting..."
   exit 1
 fi
