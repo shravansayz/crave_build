@@ -11,7 +11,6 @@ on:
     inputs:
       DEVICE_CODENAME:
         description: 'Device Codename'
-        default: apollo
         required: true
 
 jobs:
