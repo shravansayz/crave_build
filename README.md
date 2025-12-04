@@ -42,27 +42,26 @@ Before proceeding, ensure that you're already familiar how [foss.crave.io](https
    - On the left side, select "Build in foss.crave.io".
    - On the right side, select "Run workflow".
      - Choose the base project.
-     - If your ROM isn't listed, select the closest project and `repo init` the ROM manifest within your build script (refer to existing scripts).
-     - Enter your device codename and the build script to use (must be a raw file).
+     - If your ROM isn't listed, just `repo init` the ROM manifest within your build script (refer to existing [scripts](https://github.com/aosp-realm/android_build_scripts)).
+     - Enter your device codename and the build script to use (it must be a raw static url).
 
 2. **Execute the Workflow:**
    - Run the workflow.
 
 ## Important Informations
 
-- **Google Drive Upload:** `gdrive_upload.yml` This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
+- **Crave pull in devspace:** `crave_pull.yml` What is this for? Occasionally, the GitHub runner's connection to devspace fails due to heavy load. This workflow is used after a successful build to automatically pull the compiled objects into your devspace.
+
+- **GitHub Release:** `github_release_upload.yml` This is executed by default if your github action stay alive until your build finished or else execute it manually
+
+- **Gdrive Upload:** `gdrive_upload.yml` This workflows requires a setup that is out of the scope of this repository, refer to: https://github.com/adityak74/google-drive-upload-git-action
 
 - **Dirty Builds:** If you wish to perform a dirty build after a successful one, **DO NOT CHANGE THE BASE PROJECT**! Ensure you're using the same project where the initial successful build is.
   
 - **Release Limits:** Due to GitHub's 2GB per file limit on releases, if your compiled ROM zip is below 2GB, it will be uploaded to this repository's release page. If it exceeds 2GB, it will remain in your devspace for you to upload elsewhere. (Go to foss.crave.io to log in to your devspace)
 
 - **Compiled Objects:** **DO NOT START ANOTHER BUILD WITHOUT SECURING THE COMPILED OBJECTS FROM THE PREVIOUS BUILD**! (Upload or move it out of the build directory) Compiled objects will be pulled to devspace but deleted upon starting another build to avoid clogging devspace storage.
-  - Objects that will be pulled to devspace are:
-    - PATH=/crave-devspaces/`Base Project Folder`/out
-      - recovery.img
-      - boot.img
-      - ROM.zip
-      - ROM.zip.hash
-
-## Must read rules
-https://opendroid.pugzarecute.com/wiki/Crave_Rules
+  - Check the `Display files information` of the workflow for these files
+  
+## Must read
+https://fosson.top/crave/
